@@ -2,8 +2,7 @@
 
 **Enterprise-Ready Hybrid Edge + Cloud AI Architecture**
 
-LiveSpeak is a low-latency (≈200ms) real-time live captioning system designed for enterprise deployment and large-scale industrial use. Built for the **L&T Techgium Hackathon** and suitable for production environments.
-
+LiveSpeak is a low-latency (≈200ms) real-time live captioning system designed for enterprise deployment and large-scale industrial use. 
 ---
 
 ## 🎯 System Overview
