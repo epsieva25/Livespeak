@@ -1,15 +1,12 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import "./CaptionStream.css"
 
 /**
  * CaptionStream Component
  * 
  * Displays real-time captions with:
- * - No flicker, smooth updates
- * - Source indicators (Edge/Cloud)
- * - Confidence and noise scores
- * - Caption history
- * - Statistics panel
+ * - Active Caption: Shows only the current, incomplete sentence being spoken.
+ * - History: Shows finalized sentences.
  */
 export default function CaptionStream({
   captions,
@@ -19,15 +16,35 @@ export default function CaptionStream({
   onStart,
   onStop,
 }) {
-  const currentCaption = captions.length > 0 ? captions[captions.length - 1] : null
+  // We derive state from props
+  // The 'captions' prop contains all captions.
+  // We assume the last one is 'active' if it is NOT final, or if it is very recent.
+  // Actually, standard logic: 
+  // - If the last caption is partial -> It's the "Current Caption".
+  // - All previous valid captions -> History.
+
+  const bottomRef = useRef(null)
+
+  // Filter captions
+  const history = captions.filter(c => c.is_final)
+  const active = captions.length > 0 && !captions[captions.length - 1].is_final
+    ? captions[captions.length - 1]
+    : null
+
+  // Auto-scroll history
+  useEffect(() => {
+    if (bottomRef.current) {
+      bottomRef.current.scrollIntoView({ behavior: "smooth" })
+    }
+  }, [history.length])
 
   const getSourceColor = (source) => {
-    return source === "cloud" ? "#3b82f6" : "#10b981"
+    return source === "cloud" ? "#3b82f6" : "#10b981" // blue : green
   }
 
-  const getSourceLabel = (source) => {
+  const getSourceLabel = (source, confidence) => {
     if (source === "cloud") return "CLOUD"
-    if (source === "edge" && currentCaption?.confidence < 0.75) {
+    if (source === "edge" && confidence < 0.75) {
       return "EDGE (low confidence)"
     }
     return "EDGE"
@@ -83,7 +100,7 @@ export default function CaptionStream({
             </li>
             <li>
               <span>Model:</span>
-              <strong>Faster-Whisper Base</strong>
+              <strong>Sherpa-ONNX (Zipformer)</strong>
             </li>
           </ul>
         </div>
@@ -98,53 +115,48 @@ export default function CaptionStream({
           </span>
         </div>
 
+        {/* ACTIVE CAPTION BOX (The box above) */}
         <div className="caption-main">
-          {currentCaption ? (
+          {isRunning ? (
             <div className="current-caption">
-              <p className="caption-text">{currentCaption.text}</p>
-              <div className="caption-meta">
-                <span
-                  className="source-badge"
-                  style={{ backgroundColor: getSourceColor(currentCaption.source) }}
-                >
-                  {getSourceLabel(currentCaption.source)}
-                </span>
-                <span className="confidence-badge">
-                  Confidence: {(currentCaption.confidence * 100).toFixed(0)}%
-                </span>
-                <span className="noise-badge">
-                  Noise: {(currentCaption.noise_score * 100).toFixed(0)}%
-                </span>
+              {active ? (
+                <p className="caption-text">{active.text}</p>
+              ) : (
+                <p className="caption-placeholder">Listening</p>
+              )}
+              {/* Typing Indicator: Always show when running to give "alive" feel, or logic to show only if active */}
+              <div className="typing-indicator">
+                <span>.</span><span>.</span><span>.</span>
               </div>
             </div>
           ) : (
             <div className="empty-state">
-              <p>{isRunning ? "Waiting for audio input..." : "Click Start to begin captioning"}</p>
+              <p>Click Start to begin</p>
             </div>
           )}
         </div>
 
-        {/* Caption History */}
+        {/* HISTORY BOX (The box below) */}
         <div className="caption-history">
-          <h3>Recent Captions</h3>
+          <h3>Caption History</h3>
           <div className="history-list">
-            {captions
-              .slice(-10)
-              .reverse()
-              .map((caption, index) => (
-                <div key={index} className="history-item">
-                  <span className="history-text">{caption.text}</span>
+            {history.length === 0 && (
+              <div className="history-empty">No captions yet</div>
+            )}
+            {history.map((caption, index) => (
+              <div key={index} className="history-item">
+                <span className="history-text">{caption.text}</span>
+                <div className="history-meta">
                   <span
                     className="history-source"
                     style={{ backgroundColor: getSourceColor(caption.source) }}
                   >
-                    {caption.source}
+                    {caption.source === "sherpa" ? "Live" : caption.source}
                   </span>
                 </div>
-              ))}
-            {captions.length === 0 && (
-              <div className="history-empty">No captions yet</div>
-            )}
+              </div>
+            ))}
+            <div ref={bottomRef} />
           </div>
         </div>
       </div>
